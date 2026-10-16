@@ -1,0 +1,89 @@
+================================================================================
+  SEALED COMMITMENT (SC2)  --  HOW TO VERIFY IT        public: contains no secret
+  printed 2026-10-16
+================================================================================
+
+WHAT THIS IS
+  On the date shown by the public records, one person sealed a private answer to
+  a question. The seal is the REFERENCE below: two lines that were published and
+  cannot now be changed. The DATA it refers to is disclosed separately, when its
+  author chooses. Anyone can check, with nothing but a hash function, that the DATA
+  is exactly what the REFERENCE refers to. No website, company, key or person is
+  needed for that check.
+
+THE REFERENCE  (two lines; if this page wraps them, the breaks are not part of them)
+  SC2/56F4C06A25 sealed record; question, rules and answer are inside it; opened when I choose. Short form: SC2 REF-SHA3-512 is SHA3-512 of these two lines with every run of whitespace made one space and the ends trimmed.
+  S3A=56f4c06a25fe68d081565f79b0f591e72264298f94c263f0b8688cf55b47533e6eefb7da57fbdd00d968c40b53c3b44711b551efd2d9959793e4a1e3a93b28b4 S3B=037c400fa9f32c5c3aa4ad4da836b1b9011e8ecf185283279cf2c4b7de0fd39ffdcbf374b47af640d6eaf4115151afec1a5b78ed0fce3156e9b6df84f96c4f0d B2=a630f7c8b22be0a3d88b3f159ea17a7f61c123a4e9f57b4b1a2c57ad2a947a3a18001136d5a8d37b6cb858f6b2c6739c99a962333dd374a8f38b8728b7d7dbb5 S5=ecb0fc98a9bccf34bd2e2ff3e5bfa24780375b78feb9254863a798d539b452a6cd6518f5562fa80719ec51c7445e6c884c79a49e7fd2a91ded3905cc11017ef5
+
+  SHORT FORM, published where only a short line fits (e.g. a post title):
+    SC2 REF-SHA3-512=b6e3700aa3ee0d39266a9f335b32b483c6fa2baca2fb09931255d248dedb535d1be94e4312edcc81b4b038770c3284c1972a41f17d9c0ab5ad5b94860abd2002
+  SHA-512 of the reference FILE exactly as timestamped (its bytes, including the
+  single newline that ends each line):
+    80df900197b869ee8ceaffed9a3859aaeb2d4c6c8c31e7765577bc4f71a87aebf8b10ea6c0e86fa07506daa47fecd69993731f06b1882dd8f2c13e8766848d19
+
+HOW TO CHECK IT  (five commands; any machine; no network)
+  Put the disclosed data in a file called DATA and the two lines in REFERENCE.
+
+  { printf 'SC2-A\n'; cat DATA; } | openssl dgst -sha3-512     # -> S3A
+  { printf 'SC2-B\n'; cat DATA; } | openssl dgst -sha3-512     # -> S3B
+  openssl dgst -blake2b512 DATA                                # -> B2
+  sha512sum DATA              (macOS: shasum -a 512 DATA)      # -> S5
+
+  ALL FOUR must equal the values in line 2. Three or fewer is a FAILURE.
+
+  tr -s '[:space:]' ' ' < REFERENCE | sed 's/^ *//; s/ *$//' | tr -d '\n' \
+    | openssl dgst -sha3-512                                   # -> the SHORT FORM
+
+  The fifth ties the reference to what was published: a matching short form
+  proves these are THE published lines, not merely some lines. Line breaks, blank
+  lines or extra spaces added by a website do not matter: every run of whitespace
+  is made one space, and the ends trimmed, before hashing.
+
+  Without openssl (Python standard library; prints S3A, S3B, B2, S5 in that order):
+  python3 -c "import hashlib;d=open('DATA','rb').read();print(hashlib.sha3_512(b'SC2-A\n'+d).hexdigest());print(hashlib.sha3_512(b'SC2-B\n'+d).hexdigest());print(hashlib.blake2b(d,digest_size=64).hexdigest());print(hashlib.sha512(d).hexdigest())"
+
+WHAT THE DATA ITSELF SAYS
+  DATA is plain UTF-8 text. It states the question (Q), the rules that fix how
+  the answer must be read (R), the answer (A), each with its exact length in
+  bytes, a random padding field (N) that made the reference reveal nothing, and
+  public events (T) that already existed when it was sealed.
+
+EVIDENCE OF THE DATE  (this is evidence, not mathematical proof)
+  1. Timestamp tokens (NAME.tsr, each with its request NAME.tsq). Verify each AT
+     ITS OWN STAMPING TIME, against an anchor certificate you obtained yourself
+     (EU Trusted List, an OS trust store, or the operator's site, by fingerprint):
+       openssl ts -reply -in NAME.tsr -text | grep '^Time stamp'
+       openssl ts -verify -in NAME.tsr -queryfile NAME.tsq -CAfile ANCHOR.pem \
+               -partial_chain -attime EPOCH
+     where EPOCH is that time in seconds since 1970 (date -u -d 'TIME' +%s).
+     -partial_chain lets a CA or unit certificate (what trusted lists publish) be
+     the anchor. Do not use -no_check_time: it switches validity checks off.
+     The CRLs saved in crl/NAME/ show whether the signing key had been revoked:
+     find the timestamping certificate's serial number and look for it in them
+     (openssl crl -inform DER -in FILE -noout -text); a revocation date before
+     the stamping time voids that token. sc2-tsverify.sh does all of this.
+  2. The Bitcoin anchor (REFERENCE.ots). It shows the reference's SHA-256 leads
+     to the merkle root of one Bitcoin block. sc2-btc.py checks that offline
+     against the archived block header; "ots --no-bitcoin verify" prints the
+     block height and merkle root to check by hand. Then confirm on any two
+     independent explorers or nodes that the block at that height has the
+     block hash printed.
+  3. Independent archives and the national library copy listed with the
+     disclosure (Software Heritage, Internet Archive, BnF depot legal).
+
+WHAT A MATCH PROVES / DOES NOT PROVE
+  Proves: DATA is byte for byte what the REFERENCE referred to, and nothing about
+    it was learnable from the REFERENCE alone.
+  Does not prove: that the answer is true; nor, by itself, the date -- that rests
+    on the independent records above.
+
+RECONSTRUCTING DATA FROM A PRINTED MASTER SHEET
+  A master sheet is the file in uppercase hexadecimal, 64 characters per line.
+  Strip the line numbers and the 4-character checksums, join into one string,
+  convert hex to bytes. Each checksum is the first 4 hex characters of SHA3-256
+  of "NNN|<the 64 characters>", uppercase, so a mistyped character shows up on
+  one line only. Hex uses no O, I, S or G, so 0/O and 1/I cannot be confused.
+  paperkit.py, published with the reference, does all of this from a typed or
+  OCR'd copy, repairs misreadings such as O for 0, and names any line to re-read:
+    python3 paperkit.py --decode SHEET.txt DATA
+================================================================================
